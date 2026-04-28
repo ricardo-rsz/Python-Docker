@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 #Definir la ruta del archivo .env
-env_path = Path("./variable.env")
+env_path = Path("./.env")
 
 
 
