@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    container_name: file-docker
+    volumes:
+      - ./prueba.txt:/app/prueba.txt
