@@ -2,23 +2,32 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
 from src.routes.auth_routes import router as auth_router
+from typing import List
 from pydantic import BaseModel
+from pydantic import Field
 from crypto import encrypt, decrypt
 import base64
 
 # Pydantic models
 
 class Item(BaseModel):
-    text: str
+    text: str = Field(..., description="El texto del ítem")
 
 class CipherRequest(BaseModel):
-    cipher: str
-
+    cipher: str = Field(..., description="El texto cifrado")
+    
 class EncryptResponse(BaseModel):
-    cipher: str
+    cipher: str = Field(..., description="El texto cifrado")
 
 class DecryptResponse(BaseModel):
-    text: str
+    text: str = Field(..., description="El texto descifrado")
+
+class MessageResponse(BaseModel):
+    message: str = Field(..., description="El mensaje de respuesta")
+
+class FileEncryptResponse(BaseModel):
+    filename: str = Field(..., description="El nombre del archivo")
+    cipher: str = Field(..., description="El texto cifrado")
 
 # APP
 
@@ -57,15 +66,15 @@ async def shutdown_event():
 
 # Rutas
 
-@app.get("/")
+@app.get("/", response_model=MessageResponse)
 async def root():
-    return {"message": "API de cifrado correcto"}
+    return MessageResponse(message="Bienvenido a la API de cifrado")
 
-@app.get("/items")
+@app.get("/items", response_model=List[Item])
 async def get_items():
-    return [{"text": "Item 1"}, {"text": "Item 2"}]
+    return [Item(text="Item 1"), Item(text="Item 2"), Item(text="Item 3")]
 
-connected_clients = []
+connected_clients: List[WebSocket] = []
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -82,21 +91,25 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"Error en WebSocket: {e}")
     finally:
         connected_clients.remove(websocket)
+        print("Cliente desconectado")
 
-@app.post("/encrypt")
-async def encrypt_route(item: Item):
-    cipher_text = encrypt(item.text)
-    return {"cipher": cipher_text}
-
-@app.post("/decrypt")
-async def decrypt_route(request: CipherRequest):
+@app.post("/encrypt", response_model=EncryptResponse)
+async def encrypt_route(request: Item):
     try:
-        decrypted_text = decrypt(request.cipher)
-        return {"text": decrypted_text}
+        cipher_text = encrypt(request.text)
+        return EncryptResponse(cipher=cipher_text)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/encrypt-file")
+@app.post("/decrypt", response_model=DecryptResponse)
+async def decrypt_route(request: CipherRequest):
+    try:
+        decrypted_text = decrypt(request.cipher)
+        return DecryptResponse(text=decrypted_text)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/encrypt-file", response_model=FileEncryptResponse)
 async def encrypt_file_route(file: UploadFile = File(...)):
     if not file:
         raise HTTPException(status_code=400, detail="Falta el archivo en la solicitud")
@@ -109,4 +122,4 @@ async def encrypt_file_route(file: UploadFile = File(...)):
         text_content = base64.b64encode(content).decode("utf-8") 
 
     cipher_text = encrypt(text_content)
-    return {"filename": file.filename, "cipher": cipher_text}
+    return FileEncryptResponse(filename=file.filename, cipher=cipher_text)
