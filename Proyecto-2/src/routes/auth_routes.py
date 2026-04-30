@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-app = APIRouter()
+router = APIRouter()
 
-@app.get("/login")
+@router.get("/login")
 async def login():
     return {"message": "Login exitoso"}
